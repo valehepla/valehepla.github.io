@@ -1,0 +1,111 @@
+/* Estilos generales */
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+}
+
+/* Contenedor principal con columnas */
+.container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    width: 100%;
+}
+
+/* Información del cliente */
+.client-info, .chat-container {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    flex: 1;
+}
+
+.client-info {
+    max-width: 400px;
+}
+
+.client-info h1, .chat-container h1 {
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+/* Historial de conversación y chat */
+#conversationHistory {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #f9f9f9;
+}
+
+/* Botones y estilos de input */
+input[type="text"] {
+    padding: 10px;
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+button, #recordButton {
+    padding: 10px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 5px;
+    width: 100%;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#recordButton {
+    background-color: #28a745;
+}
+
+#recordButton:hover {
+    background-color: #218838;
+}
+
+button[onclick="resetConversation()"] {
+    background-color: #f44336;
+}
+
+button[onclick="resetConversation()"]:hover {
+    background-color: #d32f2f;
+}
+
+button[onclick="downloadConversation()"] {
+    background-color: #007bff;
+    margin-top: 10px;
+}
+
+.start-buttons {
+    display: flex;
+    flex-direction: column;
+}
+
+.start-buttons button {
+    margin-top: 10px;
+}
+
+audio {
+    margin-top: 15px;
+    width: 100%;
+}
+

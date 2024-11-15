@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Bot - Cobranza</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .client-info, .chat-container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            width: 100%;
+        }
+
+        .client-info {
+            max-width: 400px;
+        }
+
+        .client-info h1 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .chat-container h3, .client-info h3 {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        #conversationHistory {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+
+        button, #recordButton {
+            cursor: pointer;
+            margin: 5px 0;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+
+        .start-buttons {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-buttons button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Columna de información del cliente -->
+        <div class="client-info">
+            <h1>Información del Cliente</h1>
+            <label for="clienteSelect">Seleccione un cliente:</label>
+            <select id="clienteSelect" onchange="mostrarCliente()">
+                <option value="">--Seleccione--</option>
+            </select>
+
+            <div id="clienteInfo" style="margin-top: 20px;">
+                <p><strong>Nombre:</strong> <span id="nombreCliente"></span></p>
+                <p><strong>Fecha de Nacimiento:</strong> <span id="fechaNacimiento"></span></p>
+                <p><strong>Número de Documento:</strong> <span id="numeroDocumento"></span></p>
+                <p><strong>Teléfono de Contacto:</strong> <span id="telefonoContacto"></span></p>
+                <p><strong>Correo Electrónico:</strong> <span id="correoElectronico"></span></p>
+                <p><strong>Deuda:</strong> <span id="deudaCliente"></span></p>
+                <p><strong>Fecha de Vencimiento:</strong> <span id="fechaVencimiento"></span></p>
+                <p><strong>Estado de Cuenta:</strong> <span id="estadoCuenta"></span></p>
+                <p><strong>Historial de Pagos:</strong></p>
+                <ul id="historialPagos"></ul>
+                <div class="start-buttons">
+                    <button id="iniciarConversacion" style="display: none;" onclick="iniciarConversacion()">Iniciar Conversación</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna de chat e interacción -->
+        <div class="chat-container">
+            <div id="conversation">
+                <h3>Historial de conversación:</h3>
+                <div id="conversationHistory"></div>
+                <input type="text" id="userInput" placeholder="Escribe tu mensaje aquí..." autofocus>
+                <button onclick="sendMessage()">Enviar</button>
+                <button id="recordButton" onclick="toggleRecording()">🎙️ Hablar</button>
+                <button onclick="resetConversation()" style="background-color: #f44336; color: white;">Nueva conversación</button>
+                <button onclick="downloadConversation()">Descargar Conversación</button>
+            </div>
+
+            <h3>Análisis de Sentimiento:</h3>
+            <p id="sentimentAnalysis"></p>
+
+            <h3>Costos estimados:</h3>
+            <p id="costs"></p>
+
+            
+
+            <audio id="botAudio" controls style="display:none;"></audio>
+        </div>
+    </div>
+
+    <script>
+        let selectedClientId = null;
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+        let conversation = [];
+
+        $(document).ready(function() {
+            $.ajax({
+                url: "/clientes",
+                method: "GET",
+                success: function(clientes) {
+                    const select = $("#clienteSelect");
+                    clientes.forEach(cliente => {
+                        const option = `<option value="${cliente.ID_Cliente}">${cliente.Nombre_Cliente}</option>`;
+                        select.append(option);
+                    });
+                }
+            });
+        });
+
+        function mostrarCliente() {
+            const clienteId = $("#clienteSelect").val();
+            if (clienteId) {
+                selectedClientId = clienteId;
+                $.ajax({
+                    url: `/cliente/${clienteId}`,
+                    method: "GET",
+                    success: function(cliente) {
+                        $("#nombreCliente").text(cliente.Nombre_Cliente);
+                        $("#fechaNacimiento").text(cliente.Fecha_Nacimiento);
+                        $("#numeroDocumento").text(cliente.Número_Documento);
+                        $("#telefonoContacto").text(cliente.Teléfono_Contacto);
+                        $("#correoElectronico").text(cliente.Correo_Electrónico);
+                        $("#deudaCliente").text(cliente.Monto_Deuda);
+                        $("#fechaVencimiento").text(cliente.Fecha_Vencimiento);
+                        $("#estadoCuenta").text(cliente.Estado_Cuenta);
+
+                        const historialPagos = $("#historialPagos");
+                        historialPagos.empty();
+                        cliente.Historial_Pagos.forEach(pago => {
+                            historialPagos.append(`<li>${pago.Fecha}: $${pago.Monto.toLocaleString()}</li>`);
+                        });
+                        $("#iniciarConversacion").show();
+                    },
+                    error: function() {
+                        alert("Error al obtener información del cliente.");
+                    }
+                });
+            } else {
+                $("#clienteInfo p span").text("");
+                $("#historialPagos").empty();
+                $("#iniciarConversacion").hide();
+            }
+        }
+
+        function iniciarConversacion() {
+            $("#conversation").show();
+            $("#conversationHistory").append(`<p><strong>Val:</strong> Hola, soy Val. Estoy aquí para ayudarte con la gestión de tu deuda. ¿Estás dispuesto a conversar sobre un posible acuerdo de pago?</p>`);
+        }
+
+        function sendMessage() {
+    const userInput = $("#userInput").val();
+    if (!userInput || !selectedClientId) {
+        alert("Por favor, selecciona un cliente y escribe un mensaje.");
+        return;
+    }
+    $.ajax({
+        url: "/interact",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({
+            input: userInput,
+            cliente_id: parseInt(selectedClientId)
+        }),
+        success: function(response) {
+            $("#conversationHistory").append(
+                `<p><strong>Cliente:</strong> ${userInput}</p>`
+            );
+            $("#conversationHistory").append(
+                `<p><strong>Val:</strong> ${response.text}</p>`
+            );
+
+            $("#sentimentAnalysis").html(response.sentiment_analysis || "N/A");
+
+            $("#costs").text(
+                `Palabras: ${response.costs.words}, Tokens: ${response.costs.tokens}, Costo estimado: $${response.costs.estimated_cost}`
+            );
+            if (response.audio_path) {
+                const botAudio = $("#botAudio");
+                botAudio.attr("src", response.audio_path).show();
+                botAudio[0].load();
+                botAudio[0].play().catch(error => console.error(error));
+            }
+            $("#userInput").val("");
+        },
+        error: function() {
+            alert("Error en la comunicación con el servidor.");
+        }
+    });
+}
+
+
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                    mediaRecorder.onstop = sendAudioMessage;
+                    mediaRecorder.start();
+                    isRecording = true;
+                    document.getElementById('recordButton').textContent = '🔴 Grabando...';
+                })
+                .catch(error => {
+                    console.error("Error al acceder al micrófono:", error);
+                    alert("No se pudo acceder al micrófono.");
+                });
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            isRecording = false;
+            document.getElementById('recordButton').textContent = '🎙️ Hablar';
+        }
+
+        function sendAudioMessage() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = [];
+
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+            formData.append('cliente_id', selectedClientId);  
+
+            $.ajax({
+                url: '/audio-interact',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    addToConversation("Cliente", response.user_text);
+                    addToConversation("Val", response.text);
+
+                    $('#sentimentAnalysis').text(response.sentiment_analysis || "N/A");
+                    const costs = `Palabras: ${response.costs.words}, Tokens: ${response.costs.tokens}, Costo estimado: $${response.costs.estimated_cost}`;
+                    $('#costs').text(costs);
+
+                    if (response.audio_path) {
+                        $('#botAudio').attr('src', response.audio_path).show();
+                        $('#botAudio')[0].load();
+                        $('#botAudio')[0].play().catch(error => console.error("Error al reproducir el audio:", error));
+                    }
+                },
+                error: function() {
+                    alert("Error en la comunicación con el servidor.");
+                }
+            });
+        }
+
+        function addToConversation(sender, message) {
+            conversation.push(`${sender}: ${message}`);
+            $('#conversationHistory').append(`<p><strong>${sender}:</strong> ${message}</p>`);
+            $('#conversationHistory').scrollTop($('#conversationHistory')[0].scrollHeight);
+        }
+
+        function resetConversation() {
+            $.ajax({
+                url: '/reset',
+                type: 'POST',
+                success: function(response) {
+                    alert(response.message);
+                    conversation = [];
+                    $('#conversationHistory').empty();
+                    $('#sentimentAnalysis').text('');
+                    $('#costs').text('');
+                    const audioElement = document.getElementById('botAudio');
+                    if (!audioElement.paused) {
+                        audioElement.pause();
+                        audioElement.currentTime = 0;
+                    }
+                    $('#botAudio').hide();
+                },
+                error: function() {
+                    alert("Error al reiniciar la conversación.");
+                }
+            });
+        }
+
+        function downloadConversation() {
+            $.ajax({
+                url: '/conversation-history',
+                type: 'GET',
+                success: function(response) {
+                    const conversationText = response.conversation;
+                    const blob = new Blob([conversationText], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'conversacion.txt';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+                error: function() {
+                    alert("Error al descargar la conversación.");
+                }
+            });
+        }
+    </script>
+</body>
+</html>
